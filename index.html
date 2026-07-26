@@ -6,6 +6,7 @@
 <title>Velvo Lingue</title>
 <meta name="google-site-verification" content="k2G8F94gnfbw6pCEN90ilpsynJMeN-iOT9N0LbDea2w" />
 <script defer src="/_vercel/insights/script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23e8c46a'/%3E%3Ccircle cx='38' cy='46' r='9' fill='%230a0a0a'/%3E%3Ccircle cx='62' cy='46' r='9' fill='%230a0a0a'/%3E%3Cpath d='M40 62 L50 70 L60 62 Z' fill='%23c9832e'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -41,6 +42,7 @@ body{
 .brand svg{width:38px;height:38px;}
 .brand span{font-family:Georgia,serif;letter-spacing:4px;font-size:15px;color:var(--gold);}
 .header-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+.header-row.header-locked .xp-badge, .header-row.header-locked .streak-badge{pointer-events:none;opacity:0.55;}
 
 /* ---- Login ---- */
 .login-wrap{text-align:center;margin-top:60px;}
@@ -263,7 +265,7 @@ select.text-input{-webkit-appearance:none;appearance:none;}
 <body>
 <div id="app">
 
-  <div class="header-row">
+  <div class="header-row" id="headerRow">
     <div class="brand" id="brandHeader">
       <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="#e8c46a"/><circle cx="38" cy="46" r="9" fill="#0a0a0a"/><circle cx="62" cy="46" r="9" fill="#0a0a0a"/><path d="M40 62 L50 70 L60 62 Z" fill="#c9832e"/></svg>
       <span>VELVO LINGUE</span>
@@ -275,6 +277,48 @@ select.text-input{-webkit-appearance:none;appearance:none;}
         <span id="streakCount">0</span>
       </button>
       <button class="xp-badge" id="xpBadge" title="Vedi il tuo profilo">&#11088; 0 XP</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: LOGIN -->
+  <div id="screen-login" class="hidden">
+    <div class="login-wrap">
+      <div class="mascot-wrap" style="width:170px;height:170px;margin:0 auto 18px;">__MASCOT_SVG__</div>
+      <h1 class="display" id="loginTitle">Bentornato</h1>
+      <p id="loginSub">Accedi per continuare a studiare.</p>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin">Accedi</button>
+        <button class="auth-tab" id="tabRegister">Crea account</button>
+      </div>
+
+      <div id="authError" class="auth-error hidden"></div>
+
+      <input type="email" class="text-input" id="authEmail" placeholder="Email" autocomplete="email">
+      <input type="password" class="text-input" id="authPassword" placeholder="Password" autocomplete="current-password">
+
+      <button class="btn" id="authSubmitBtn">Accedi</button>
+      <div id="forgotLinkWrap" style="margin-top:14px;">
+        <button class="link-btn" id="forgotLink">Password dimenticata?</button>
+      </div>
+
+      <div id="forgotWrap" class="hidden">
+        <input type="email" class="text-input" id="forgotEmail" placeholder="Email del tuo account" autocomplete="email">
+        <button class="btn btn-ghost" id="forgotSendBtn">Invia email di recupero</button>
+        <button class="btn btn-ghost" id="forgotCancelBtn">Annulla</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: SET NEW PASSWORD (from email link) -->
+  <div id="screen-reset" class="hidden">
+    <div class="login-wrap">
+      <div class="mascot-wrap" style="width:150px;height:150px;margin:0 auto 18px;">__MASCOT_SVG__</div>
+      <h1 class="display">Imposta una nuova password</h1>
+      <p>Scegli la tua nuova password per accedere.</p>
+      <div id="resetError" class="auth-error hidden"></div>
+      <input type="password" class="text-input" id="newPasswordInput" placeholder="Nuova password" autocomplete="new-password">
+      <button class="btn" id="resetSubmitBtn">Salva nuova password</button>
     </div>
   </div>
 
@@ -319,6 +363,7 @@ select.text-input{-webkit-appearance:none;appearance:none;}
       <div class="profile-langs" id="profileLangs"></div>
 
       <button class="btn btn-ghost" id="closeProfileBtn">Torna alla home</button>
+      <button class="link-btn" id="logoutBtn" style="margin-top:14px;">Esci dall'account</button>
     </div>
   </div>
 
@@ -734,7 +779,7 @@ const DATA = {
 
 /* ---------------- State ---------------- */
 let state = {
-  lang:null, unitIndex:0, queue:[], idx:0, hearts:3, xp:0, correctCount:0,
+  user:null, lang:null, unitIndex:0, queue:[], idx:0, hearts:3, xp:0, correctCount:0,
   streak:0, maxStreak:0, answered:false, totalXP:0, hintUsed:false, streakDays:0
 };
 const HINT_COST = 15;
@@ -766,9 +811,11 @@ function buildQueue(langCode, unitIndex){
 }
 
 /* ---------------- Screens ---------------- */
-const screens = ['home','profile','units','intro','exercise','result','gameover'];
+const screens = ['login','reset','home','profile','units','intro','exercise','result','gameover'];
 function showScreen(name){
   screens.forEach(s => document.getElementById('screen-'+s).classList.toggle('hidden', s!==name));
+  const header = document.getElementById('headerRow');
+  header.classList.toggle('header-locked', name === 'exercise');
 }
 
 function renderHome(){
@@ -1122,6 +1169,151 @@ function initApp(){
   updateStreakBadge();
   renderHome();
   showScreen('home');
+}
+
+/* ---------------- Supabase auth (real accounts + email password reset) ---------------- */
+const SUPABASE_URL = 'https://ucbjwwwxvlzajdxwowhv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_oiPtc02PPqBS1PV3mb5PtQ_tXck82p1';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let authMode = 'login';
+
+function showAuthError(msg, targetId = 'authError'){
+  const el = document.getElementById(targetId);
+  el.textContent = msg;
+  el.style.color = '';
+  el.style.borderColor = '';
+  el.classList.remove('hidden');
+}
+function clearAuthError(targetId = 'authError'){
+  const el = document.getElementById(targetId);
+  el.classList.add('hidden');
+  el.style.color = '';
+  el.style.borderColor = '';
+}
+function showAuthSuccess(msg, targetId = 'authError'){
+  const el = document.getElementById(targetId);
+  el.textContent = msg;
+  el.style.color = 'var(--success)';
+  el.style.borderColor = 'var(--success)';
+  el.classList.remove('hidden');
+}
+
+function setAuthMode(mode){
+  authMode = mode;
+  clearAuthError();
+  document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+  document.getElementById('authPassword').autocomplete = mode === 'register' ? 'new-password' : 'current-password';
+  document.getElementById('loginTitle').textContent = mode === 'register' ? 'Crea il tuo account' : 'Bentornato';
+  document.getElementById('loginSub').textContent = mode === 'register' ? 'Registrati per iniziare a studiare.' : 'Accedi per continuare a studiare.';
+  document.getElementById('authSubmitBtn').textContent = mode === 'register' ? 'Crea account' : 'Accedi';
+  document.getElementById('forgotLinkWrap').classList.toggle('hidden', mode !== 'login');
+}
+
+function initLoginScreen(){
+  setAuthMode('login');
+  document.getElementById('authEmail').value = '';
+  document.getElementById('authPassword').value = '';
+  closeForgotFlow();
+  showScreen('login');
+}
+
+document.getElementById('tabLogin').onclick = () => setAuthMode('login');
+document.getElementById('tabRegister').onclick = () => setAuthMode('register');
+
+document.getElementById('authSubmitBtn').onclick = async () => {
+  clearAuthError();
+  const email = document.getElementById('authEmail').value.trim().toLowerCase();
+  const password = document.getElementById('authPassword').value;
+  if(!email || !password){ showAuthError('Compila email e password.'); return; }
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if(!emailPattern.test(email)){ showAuthError('Inserisci un indirizzo email valido.'); return; }
+
+  const btn = document.getElementById('authSubmitBtn');
+  btn.disabled = true;
+
+  if(authMode === 'register'){
+    if(password.length < 6){ showAuthError('La password deve avere almeno 6 caratteri.'); btn.disabled = false; return; }
+    const { data, error } = await sb.auth.signUp({ email, password });
+    btn.disabled = false;
+    if(error){ showAuthError(error.message); return; }
+    if(data.session){
+      afterLogin(data.session.user);
+    } else {
+      showAuthSuccess('Account creato! Controlla la tua email per confermarlo, poi accedi qui.');
+      setAuthMode('login');
+    }
+  } else {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    btn.disabled = false;
+    if(error){ showAuthError('Email o password non corretti.'); return; }
+    afterLogin(data.session.user);
+  }
+};
+
+/* ---------------- Forgot password (real email) ---------------- */
+function closeForgotFlow(){
+  document.getElementById('forgotWrap').classList.add('hidden');
+  document.getElementById('forgotEmail').value = '';
+}
+document.getElementById('forgotLink').onclick = () => {
+  clearAuthError();
+  document.getElementById('forgotWrap').classList.remove('hidden');
+};
+document.getElementById('forgotCancelBtn').onclick = closeForgotFlow;
+document.getElementById('forgotSendBtn').onclick = async () => {
+  clearAuthError();
+  const email = document.getElementById('forgotEmail').value.trim().toLowerCase();
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if(!emailPattern.test(email)){ showAuthError('Inserisci un indirizzo email valido.'); return; }
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+  if(error){ showAuthError(error.message); return; }
+  closeForgotFlow();
+  showAuthSuccess('Email inviata! Controlla la posta (anche lo spam) per il link di reset.');
+};
+
+/* ---------------- Set new password (from email link) ---------------- */
+document.getElementById('resetSubmitBtn').onclick = async () => {
+  const el = document.getElementById('resetError');
+  el.classList.add('hidden');
+  const newPassword = document.getElementById('newPasswordInput').value;
+  if(newPassword.length < 6){ el.textContent = 'La password deve avere almeno 6 caratteri.'; el.classList.remove('hidden'); return; }
+  const { data, error } = await sb.auth.updateUser({ password: newPassword });
+  if(error){ el.textContent = error.message; el.classList.remove('hidden'); return; }
+  afterLogin(data.user);
+};
+
+function afterLogin(user){
+  state.user = user;
+  state.totalXP = loadTotalXP();
+  state.streakDays = loadStreakData().count;
+  updateXpBadge();
+  updateStreakBadge();
+  renderHome();
+  showScreen('home');
+}
+
+document.getElementById('logoutBtn').onclick = async () => {
+  await sb.auth.signOut();
+  state.user = null;
+  initLoginScreen();
+};
+
+async function initApp(){
+  /* Handle "set new password" link coming from a password-reset email */
+  if(window.location.hash.includes('type=recovery')){
+    showScreen('reset');
+    return;
+  }
+
+  const { data } = await sb.auth.getSession();
+  if(data.session){
+    afterLogin(data.session.user);
+  } else {
+    initLoginScreen();
+  }
 }
 
 /* ---------------- Completed units tracking ---------------- */
