@@ -231,6 +231,15 @@ select.text-input{-webkit-appearance:none;appearance:none;}
 .text-input:focus{outline:none;border-color:var(--gold);}
 .text-input.correct{border-color:var(--success);}
 .text-input.wrong{border-color:var(--danger);}
+.password-field{position:relative;}
+.password-field .text-input{padding-right:46px;}
+.password-toggle{
+  position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;padding:8px;
+  display:flex;align-items:center;justify-content:center;
+}
+.password-toggle svg{width:20px;height:20px;fill:var(--text-dim);}
+.password-toggle.active svg{fill:var(--gold);}
 
 .feedback-bar{
   position:sticky;bottom:0;left:0;right:0;margin:20px -20px -40px;padding:18px 20px 26px;
@@ -295,7 +304,12 @@ select.text-input{-webkit-appearance:none;appearance:none;}
       <div id="authError" class="auth-error hidden"></div>
 
       <input type="email" class="text-input" id="authEmail" placeholder="Email" autocomplete="email">
-      <input type="password" class="text-input" id="authPassword" placeholder="Password" autocomplete="current-password">
+      <div class="password-field">
+        <input type="password" class="text-input" id="authPassword" placeholder="Password" autocomplete="current-password">
+        <button type="button" class="password-toggle" id="authPasswordToggle" aria-label="Mostra password">
+          <svg viewBox="0 0 24 24"><path d="M12 5c-5 0-9 4-11 7 2 3 6 7 11 7s9-4 11-7c-2-3-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+        </button>
+      </div>
 
       <button class="btn" id="authSubmitBtn">Accedi</button>
       <div id="forgotLinkWrap" style="margin-top:14px;">
@@ -317,7 +331,12 @@ select.text-input{-webkit-appearance:none;appearance:none;}
       <h1 class="display">Imposta una nuova password</h1>
       <p>Scegli la tua nuova password per accedere.</p>
       <div id="resetError" class="auth-error hidden"></div>
-      <input type="password" class="text-input" id="newPasswordInput" placeholder="Nuova password" autocomplete="new-password">
+      <div class="password-field">
+        <input type="password" class="text-input" id="newPasswordInput" placeholder="Nuova password" autocomplete="new-password">
+        <button type="button" class="password-toggle" id="newPasswordToggle" aria-label="Mostra password">
+          <svg viewBox="0 0 24 24"><path d="M12 5c-5 0-9 4-11 7 2 3 6 7 11 7s9-4 11-7c-2-3-6-7-11-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+        </button>
+      </div>
       <button class="btn" id="resetSubmitBtn">Salva nuova password</button>
     </div>
   </div>
@@ -1092,6 +1111,7 @@ function loadTotalXP(){
 }
 function saveTotalXP(){
   try{ localStorage.setItem(XP_KEY, String(state.totalXP)); } catch(e){ /* storage unavailable */ }
+  syncToSupabase();
 }
 
 function todayStr(){
@@ -1121,6 +1141,7 @@ function updateStreakOnLessonComplete(){
   saveStreakData(data);
   state.streakDays = data.count;
   updateStreakBadge();
+  syncToSupabase();
 }
 function updateStreakBadge(){
   document.getElementById('streakCount').textContent = state.streakDays;
@@ -1220,6 +1241,18 @@ function initLoginScreen(){
 }
 
 document.getElementById('tabLogin').onclick = () => setAuthMode('login');
+
+function setupPasswordToggle(inputId, btnId){
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  btn.onclick = () => {
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.classList.toggle('active', !showing);
+  };
+}
+setupPasswordToggle('authPassword', 'authPasswordToggle');
+setupPasswordToggle('newPasswordInput', 'newPasswordToggle');
 document.getElementById('tabRegister').onclick = () => setAuthMode('register');
 
 document.getElementById('authSubmitBtn').onclick = async () => {
@@ -1285,8 +1318,28 @@ document.getElementById('resetSubmitBtn').onclick = async () => {
   afterLogin(data.user);
 };
 
+function applyRemoteMetadata(user){
+  const meta = user.user_metadata || {};
+  try{
+    if(typeof meta.totalXP === 'number') localStorage.setItem(XP_KEY, String(meta.totalXP));
+    if(meta.streak) localStorage.setItem(STREAK_KEY, JSON.stringify(meta.streak));
+    if(Array.isArray(meta.completed)) localStorage.setItem(COMPLETED_KEY, JSON.stringify(meta.completed));
+  } catch(e){ /* storage unavailable */ }
+}
+
+function syncToSupabase(){
+  if(!state.user) return;
+  const payload = {
+    totalXP: loadTotalXP(),
+    streak: loadStreakData(),
+    completed: loadCompleted()
+  };
+  sb.auth.updateUser({ data: payload }).catch(() => {});
+}
+
 function afterLogin(user){
   state.user = user;
+  applyRemoteMetadata(user);
   state.totalXP = loadTotalXP();
   state.streakDays = loadStreakData().count;
   updateXpBadge();
@@ -1331,6 +1384,7 @@ function markUnitCompleted(langCode, unitIndex){
   if(!list.includes(key)){
     list.push(key);
     saveCompleted(list);
+    syncToSupabase();
   }
 }
 
