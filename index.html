@@ -65,7 +65,8 @@ select.text-input{-webkit-appearance:none;appearance:none;}
 .header-chips{display:flex;align-items:center;gap:8px;}
 .xp-badge{background:var(--surface2);border:1px solid var(--gold-dim);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--gold);white-space:nowrap;font-family:inherit;cursor:pointer;}
 .xp-badge:hover{background:var(--surface);}
-.streak-badge{background:var(--surface2);border:1px solid var(--gold-dim);border-radius:20px;padding:4px 10px;font-size:12px;color:#ff8a3d;white-space:nowrap;display:flex;align-items:center;gap:4px;font-family:inherit;cursor:default;}
+.streak-badge{background:var(--surface2);border:1px solid var(--gold-dim);border-radius:20px;padding:4px 10px;font-size:12px;color:#ff8a3d;white-space:nowrap;display:flex;align-items:center;gap:4px;font-family:inherit;cursor:pointer;}
+.streak-badge:hover{background:var(--surface);}
 .flame-icon{width:11px;height:11px;}
 
 /* ---- Profile ---- */
@@ -116,16 +117,20 @@ select.text-input{-webkit-appearance:none;appearance:none;}
 
 /* ---- Streak calendar ---- */
 .flame-icon-big{width:64px;height:64px;margin:0 auto;display:block;}
-.streak-week{display:flex;justify-content:center;gap:8px;}
-.streak-day{display:flex;flex-direction:column;align-items:center;gap:8px;}
-.streak-day .day-lab{font-size:11px;color:var(--text-dim);text-transform:uppercase;}
-.streak-day .day-circle{
-  width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  background:var(--surface);border:1.5px solid var(--border);
-}
-.streak-day.done .day-circle{background:#2a1a0a;border-color:#ff8a3d;}
-.streak-day.today .day-circle{border-color:var(--gold);border-width:2px;}
-.streak-day .day-circle svg{width:18px;height:18px;}
+
+.calendar-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.calendar-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.calendar-nav span{font-family:Georgia,serif;font-size:16px;color:var(--gold-bright);}
+.calendar-arrow{background:var(--surface2);border:1px solid var(--border);color:var(--gold);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;font-family:inherit;}
+.calendar-arrow:hover{border-color:var(--gold-dim);}
+.calendar-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px;}
+.calendar-weekdays span{text-align:center;font-size:11px;color:var(--text-dim);text-transform:uppercase;}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.calendar-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;color:var(--text-dim);}
+.calendar-cell.empty{visibility:hidden;}
+.calendar-cell.done{background:#2a1a0a;border:2px solid #ff8a3d;color:#ffb37a;font-weight:600;}
+.calendar-cell.today{border:2px solid var(--gold);color:var(--gold-bright);font-weight:600;}
+.calendar-cell.today.done{border-color:#ff8a3d;}
 
 /* ---- Landing ---- */
 .hero{text-align:center;margin:18px 0 30px;}
@@ -346,13 +351,22 @@ select.text-input{-webkit-appearance:none;appearance:none;}
     <div class="profile-wrap">
       <svg class="flame-icon-big" viewBox="0 0 24 24"><path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c0-1-1-2-1-3 2 1 3 3 3 5a5 5 0 0 1-10 0c0-4 3-6 3-8 0-1 1-2 2-2z" fill="url(#flameGrad)"/></svg>
       <h1 class="display" style="font-size:34px;color:#ff8a3d;margin:8px 0 2px;" id="streakBigNumber">0</h1>
-      <p style="color:var(--text-dim);font-size:14px;margin-bottom:26px;" id="streakSub">giorni di fila</p>
+      <p style="color:var(--text-dim);font-size:14px;margin-bottom:8px;" id="streakSub">giorni di streak</p>
+      <p style="color:var(--text-dim);font-size:13px;margin-bottom:24px;" id="streakHint"></p>
 
-      <div class="streak-week" id="streakWeek"></div>
+      <div class="calendar-box">
+        <div class="calendar-nav">
+          <button class="calendar-arrow" id="calPrevBtn">&#8249;</button>
+          <span id="calMonthLabel">Mese</span>
+          <button class="calendar-arrow" id="calNextBtn">&#8250;</button>
+        </div>
+        <div class="calendar-weekdays">
+          <span>D</span><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
 
-      <p style="color:var(--text-dim);font-size:13px;margin:20px 0 26px;" id="streakHint"></p>
-
-      <button class="btn btn-ghost" id="closeStreakBtn">Torna alla home</button>
+      <button class="btn btn-ghost" id="closeStreakBtn" style="margin-top:24px;">Torna alla home</button>
     </div>
   </div>
 
@@ -830,11 +844,15 @@ function buildQueue(langCode, unitIndex){
 }
 
 /* ---------------- Screens ---------------- */
-const screens = ['login','reset','home','profile','units','intro','exercise','result','gameover'];
+const screens = ['login','reset','home','profile','units','intro','exercise','result','gameover','streak'];
+const PROTECTED_SCREENS = ['home','profile','units','intro','exercise','result','gameover','streak'];
 function showScreen(name){
+  if(PROTECTED_SCREENS.includes(name) && !state.user){
+    name = 'login';
+  }
   screens.forEach(s => document.getElementById('screen-'+s).classList.toggle('hidden', s!==name));
   const header = document.getElementById('headerRow');
-  header.classList.toggle('header-locked', name === 'exercise');
+  header.classList.toggle('header-locked', name === 'exercise' || name === 'login' || name === 'reset');
 }
 
 function renderHome(){
@@ -1147,38 +1165,63 @@ function updateStreakBadge(){
   document.getElementById('streakCount').textContent = state.streakDays;
 }
 
+const MONTH_NAMES = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+let calendarViewDate = new Date();
+
 function openStreakCalendar(){
   const data = loadStreakData();
   document.getElementById('streakBigNumber').textContent = state.streakDays;
-  document.getElementById('streakSub').textContent = state.streakDays === 1 ? 'giorno di fila' : 'giorni di fila';
-
-  const dayLabels = ['D','L','M','M','G','V','S'];
-  const week = document.getElementById('streakWeek');
-  week.innerHTML = '';
-  const today = new Date();
-  for(let i = 6; i >= 0; i--){
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0,10);
-    const isToday = i === 0;
-    const done = data.history.includes(dateStr);
-    const cell = document.createElement('div');
-    cell.className = 'streak-day' + (done ? ' done' : '') + (isToday ? ' today' : '');
-    cell.innerHTML = `<div class="day-lab">${dayLabels[d.getDay()]}</div>
-      <div class="day-circle">${done
-        ? '<svg viewBox="0 0 24 24"><path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c0-1-1-2-1-3 2 1 3 3 3 5a5 5 0 0 1-10 0c0-4 3-6 3-8 0-1 1-2 2-2z" fill="url(#flameGrad)"/></svg>'
-        : `<span style="font-size:12px;color:var(--text-dim);">${d.getDate()}</span>`}
-      </div>`;
-    week.appendChild(cell);
-  }
+  document.getElementById('streakSub').textContent = state.streakDays === 1 ? 'giorno di streak' : 'giorni di streak';
 
   const hint = document.getElementById('streakHint');
   hint.textContent = data.lastDate === todayStr()
     ? 'Hai gia studiato oggi. Continua cosi domani!'
     : 'Non hai ancora studiato oggi: fai una lezione per continuare la streak.';
 
+  calendarViewDate = new Date();
+  renderCalendarMonth();
   showScreen('streak');
 }
+
+function renderCalendarMonth(){
+  const data = loadStreakData();
+  const year = calendarViewDate.getFullYear();
+  const month = calendarViewDate.getMonth();
+  document.getElementById('calMonthLabel').textContent = MONTH_NAMES[month] + ' ' + year;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayS = todayStr();
+
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML = '';
+
+  for(let i = 0; i < firstDay; i++){
+    const empty = document.createElement('div');
+    empty.className = 'calendar-cell empty';
+    grid.appendChild(empty);
+  }
+
+  for(let day = 1; day <= daysInMonth; day++){
+    const dateStr = year + '-' + String(month + 1).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+    const done = data.history.includes(dateStr);
+    const isToday = dateStr === todayS;
+    const cell = document.createElement('div');
+    cell.className = 'calendar-cell' + (done ? ' done' : '') + (isToday ? ' today' : '');
+    cell.textContent = day;
+    grid.appendChild(cell);
+  }
+}
+
+document.getElementById('calPrevBtn').onclick = () => {
+  calendarViewDate.setMonth(calendarViewDate.getMonth() - 1);
+  renderCalendarMonth();
+};
+document.getElementById('calNextBtn').onclick = () => {
+  calendarViewDate.setMonth(calendarViewDate.getMonth() + 1);
+  renderCalendarMonth();
+};
+
 function updateXpBadge(){
   document.getElementById('xpBadge').innerHTML = '&#11088; ' + state.totalXP + ' XP';
 }
@@ -1195,7 +1238,9 @@ function initApp(){
 /* ---------------- Supabase auth (real accounts + email password reset) ---------------- */
 const SUPABASE_URL = 'https://ucbjwwwxvlzajdxwowhv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_oiPtc02PPqBS1PV3mb5PtQ_tXck82p1';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false }
+});
 
 let authMode = 'login';
 
@@ -1410,6 +1455,8 @@ function openProfile(){
   showScreen('profile');
 }
 
+document.getElementById('streakBadge').onclick = openStreakCalendar;
+document.getElementById('closeStreakBtn').onclick = () => { renderHome(); showScreen('home'); };
 document.getElementById('xpBadge').onclick = openProfile;
 document.getElementById('closeProfileBtn').onclick = () => { renderHome(); showScreen('home'); };
 
