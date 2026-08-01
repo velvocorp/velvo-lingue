@@ -1366,9 +1366,9 @@ document.getElementById('resetSubmitBtn').onclick = async () => {
 function applyRemoteMetadata(user){
   const meta = user.user_metadata || {};
   try{
-    if(typeof meta.totalXP === 'number') localStorage.setItem(XP_KEY, String(meta.totalXP));
-    if(meta.streak) localStorage.setItem(STREAK_KEY, JSON.stringify(meta.streak));
-    if(Array.isArray(meta.completed)) localStorage.setItem(COMPLETED_KEY, JSON.stringify(meta.completed));
+    localStorage.setItem(XP_KEY, String(typeof meta.totalXP === 'number' ? meta.totalXP : 0));
+    localStorage.setItem(STREAK_KEY, JSON.stringify(meta.streak || { count:0, lastDate:null, history:[] }));
+    localStorage.setItem(COMPLETED_KEY, JSON.stringify(Array.isArray(meta.completed) ? meta.completed : []));
   } catch(e){ /* storage unavailable */ }
 }
 
@@ -1382,11 +1382,25 @@ function syncToSupabase(){
   sb.auth.updateUser({ data: payload }).catch(() => {});
 }
 
+function checkStreakExpiry(){
+  const data = loadStreakData();
+  const today = todayStr();
+  if(data.lastDate && data.lastDate !== today){
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+    if(data.lastDate !== yesterday && data.count !== 0){
+      data.count = 0;
+      saveStreakData(data);
+      syncToSupabase();
+    }
+  }
+  return data.count;
+}
+
 function afterLogin(user){
   state.user = user;
   applyRemoteMetadata(user);
   state.totalXP = loadTotalXP();
-  state.streakDays = loadStreakData().count;
+  state.streakDays = checkStreakExpiry();
   updateXpBadge();
   updateStreakBadge();
   renderHome();
