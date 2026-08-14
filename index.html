@@ -204,6 +204,7 @@ select.text-input{-webkit-appearance:none;appearance:none;}
 }
 .listen-btn:hover{background:var(--surface);border-color:var(--gold-dim);}
 .listen-btn svg{width:30px;height:30px;fill:var(--gold);}
+.listen-warning{color:#e0a558;font-size:12px;text-align:center;margin:-16px 0 24px;line-height:1.5;background:#231a0a;border:1px solid #6a4a1a;border-radius:10px;padding:10px 14px;}
 
 .options{display:flex;flex-direction:column;gap:10px;}
 .options.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -1158,6 +1159,7 @@ function renderExercise(){
       <div class="ex-label">Ascolto</div>
       <div class="ex-prompt">Ascolta e scegli la parola giusta</div>
       <div class="listen-btn" id="playBtn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+      <p id="listenWarning" class="listen-warning hidden">Il tuo dispositivo non ha una voce per questa lingua, quindi l'audio potrebbe non sentirsi. Prova a cambiare browser o a installare la lingua nelle impostazioni del telefono.</p>
       <div class="options" id="optWrap">
         ${item.options.map(o => `<button class="opt" data-val="${o}">${o}</button>`).join('')}
       </div>`;
@@ -1212,11 +1214,33 @@ function renderIconOrEmoji(emoji){
 }
 
 function speak(text, lang){
-  if(!('speechSynthesis' in window)) return;
+  if(!('speechSynthesis' in window)){
+    showListenWarning();
+    return;
+  }
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang; u.rate = 0.9;
+
+  const voices = window.speechSynthesis.getVoices();
+  const langBase = lang.split('-')[0];
+  const hasVoice = voices.some(v => v.lang && v.lang.toLowerCase().startsWith(langBase));
+  if(voices.length > 0 && !hasVoice){
+    showListenWarning();
+  } else {
+    hideListenWarning();
+  }
+
   window.speechSynthesis.speak(u);
+}
+
+function showListenWarning(){
+  const el = document.getElementById('listenWarning');
+  if(el) el.classList.remove('hidden');
+}
+function hideListenWarning(){
+  const el = document.getElementById('listenWarning');
+  if(el) el.classList.add('hidden');
 }
 
 function attachOptionHandlers(correctVal){
