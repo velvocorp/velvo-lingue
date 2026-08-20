@@ -35,6 +35,16 @@ body{
 }
 .display{font-family:Georgia,"Times New Roman",serif;}
 #app{width:100%;max-width:520px;min-height:100vh;display:flex;flex-direction:column;padding:24px 20px 40px;position:relative;}
+.cookie-banner{
+  position:fixed;left:0;right:0;bottom:0;z-index:999;
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:16px 20px calc(16px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:12px;
+  max-width:520px;margin:0 auto;
+  box-shadow:0 -6px 20px rgba(0,0,0,0.4);
+}
+.cookie-banner p{font-size:13px;color:var(--text-dim);line-height:1.5;margin:0;}
+.cookie-banner .btn{width:auto;padding:10px 24px;align-self:flex-end;}
 .hidden{display:none !important;}
 
 /* ---- Header / brand ---- */
@@ -281,6 +291,11 @@ select.text-input{-webkit-appearance:none;appearance:none;}
 </head>
 <body>
 <div id="app">
+
+  <div id="cookieBanner" class="cookie-banner hidden">
+    <p>Questo sito usa la memoria del browser per salvare i tuoi progressi (XP, streak) e statistiche di visita anonime (Vercel Analytics). Continuando accetti questo utilizzo.</p>
+    <button class="btn" id="cookieAcceptBtn">Accetta</button>
+  </div>
 
   <div class="header-row" id="headerRow">
     <div class="brand" id="brandHeader">
@@ -812,21 +827,6 @@ const DATA = {
     }
   ]},
   el: { name:'Greco', flag:'🇬🇷', voice:'el-GR', units:[
-    { title:'Alfabeto',
-      words:[
-        {w:'α',t:'alfa (a)',e:'Α'},{w:'β',t:'vita (b)',e:'Β'},{w:'γ',t:'gamma (g)',e:'Γ'},
-        {w:'δ',t:'delta (d)',e:'Δ'},{w:'ε',t:'epsilon (e)',e:'Ε'},{w:'θ',t:'thita (th)',e:'Θ'},
-        {w:'λ',t:'lambda (l)',e:'Λ'},{w:'π',t:'pi (p)',e:'Π'},{w:'σ',t:'sigma (s)',e:'Σ'},{w:'ω',t:'omega (o)',e:'Ω'}
-      ],
-      sentences:[
-        {it:'Ciao', ans:'Geia'},
-        {it:'Grazie', ans:'Efcharisto'},
-        {it:'Si', ans:'Nai'},
-        {it:'No', ans:'Ochi'},
-        {it:'Per favore', ans:'Parakalo'},
-        {it:'Scusa', ans:'Signomi'}
-      ]
-    },
     { title:'Le basi',
       words:[
         {w:'μήλο',t:'mela',e:'🍎'},{w:'νερό',t:'acqua',e:'💧'},{w:'σπίτι',t:'casa',e:'🏠'},
@@ -904,21 +904,6 @@ const DATA = {
     }
   ]},
   ja: { name:'Giapponese', flag:'🇯🇵', voice:'ja-JP', units:[
-    { title:'Alfabeto',
-      words:[
-        {w:'あ',t:'a',e:'あ'},{w:'い',t:'i',e:'い'},{w:'う',t:'u',e:'う'},
-        {w:'え',t:'e',e:'え'},{w:'お',t:'o',e:'お'},{w:'か',t:'ka',e:'か'},
-        {w:'さ',t:'sa',e:'さ'},{w:'た',t:'ta',e:'た'},{w:'な',t:'na',e:'な'},{w:'は',t:'ha',e:'は'}
-      ],
-      sentences:[
-        {it:'Ciao', ans:'Konnichiwa'},
-        {it:'Grazie', ans:'Arigatou'},
-        {it:'Si', ans:'Hai'},
-        {it:'No', ans:'Iie'},
-        {it:'Per favore', ans:'Onegaishimasu'},
-        {it:'Scusa', ans:'Sumimasen'}
-      ]
-    },
     { title:'Le basi',
       words:[
         {w:'りんご',t:'mela',e:'🍎'},{w:'みず',t:'acqua',e:'💧'},{w:'いえ',t:'casa',e:'🏠'},
@@ -1713,6 +1698,21 @@ document.getElementById('backHomeFromUnitsBtn').onclick = () => { renderHome(); 
 document.getElementById('continueBtn').onclick = () => openUnits(state.lang);
 document.getElementById('retryBtn').onclick = startLesson;
 document.getElementById('goHomeBtn2').onclick = () => { renderHome(); showScreen('home'); };
+
+/* ---------------- Cookie consent banner ---------------- */
+const COOKIE_KEY = 'velvoLingueCookieConsent';
+function initCookieBanner(){
+  let accepted = false;
+  try{ accepted = localStorage.getItem(COOKIE_KEY) === 'yes'; } catch(e){ /* storage unavailable */ }
+  if(!accepted){
+    document.getElementById('cookieBanner').classList.remove('hidden');
+  }
+}
+document.getElementById('cookieAcceptBtn').onclick = () => {
+  try{ localStorage.setItem(COOKIE_KEY, 'yes'); } catch(e){ /* storage unavailable */ }
+  document.getElementById('cookieBanner').classList.add('hidden');
+};
+initCookieBanner();
 
 initApp();
 </script>
